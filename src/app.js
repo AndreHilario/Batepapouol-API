@@ -17,13 +17,13 @@ mongoClient.connect()
     .then(() => db = mongoClient.db())
     .catch((err) => console.log(err.message))
 
+const now = dayjs(); //Data atual
+const currentTime = now.format('HH:mm:ss'); //Data no formato correto
+
 
 app.post("/participants", async (req, res) => {
     try {
         const { name } = req.body;
-
-        const now = dayjs(); //Data atual
-        const currentTime = now.format('HH:mm:ss'); //Data no formato correto
 
         const newUser = { name, lastStatus: Date.now() };
         const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: currentTime };
@@ -44,15 +44,33 @@ app.get("/participants", (req, res) => {
 
 });
 
-app.post("/messages", (req, res) => {
+app.post("/messages", async (req, res) => {
+    try {
+        const { to, text, type } = req.body;
+        const { User } = req.headers;
 
-    const { to, text, type } = req.body;
-    const { User } = req.headers;
+        const sendMessage = { from: User, to, text, type, time: currentTime };
+
+        await db.collection("messages").insertOne(sendMessage);
+
+        res.sendStatus(201);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 
 });
 app.get("/messages", (req, res) => {
 
     const { limit } = req.query;
+    const { user } = req.headers;
+
+    if (Math.sign(limit) !== 1) {
+        res.sendStatus(422);
+    } else {
+        db.collection("messages").find({ $or: [{ type: "message" }, { to: "Todos" }, { to: user }, { from: user }] }).toArray()
+            .then(messages => res.send(!limit ? messages : messages.slice(-limit)))
+            .catch(err => res.status(500).send(err.message))
+    }
 
 });
 app.post("/status", (req, res) => {
