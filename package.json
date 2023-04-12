@@ -21,6 +21,7 @@
   "homepage": "https://github.com/AndreHilario/Projeto-13-API-Bate-papo-UOL#readme",
   "dependencies": {
     "cors": "^2.8.5",
+    "dayjs": "^1.11.7",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "mongodb": "^5.2.0"
