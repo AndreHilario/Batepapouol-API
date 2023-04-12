@@ -3,6 +3,7 @@ import cors from "cors";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
+import Joi from "joi";
 
 const app = express();
 
@@ -23,7 +24,23 @@ const currentTime = now.format('HH:mm:ss'); //Data no formato correto
 
 app.post("/participants", async (req, res) => {
     try {
+
         const { name } = req.body;
+
+        const userSchema = Joi.object({
+            name: Joi.string().required()
+        })
+        const { error } = userSchema.validate(req.body);
+
+        if (error) {
+            return res.sendStatus(422);
+        }
+
+        const searchUsers = await db.collection("participants").find({ name }).toArray()
+        
+        if(searchUsers.length > 0) {
+            return res.sendStatus(409);
+        }
 
         const newUser = { name, lastStatus: Date.now() };
         const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: currentTime };
