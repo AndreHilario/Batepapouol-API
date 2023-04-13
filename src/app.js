@@ -21,6 +21,7 @@ mongoClient.connect()
 const currentDate = dayjs(); //Data atual
 const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
 
+//setInterval(removeUsers, 15000);
 
 app.post("/participants", async (req, res) => {
     try {
@@ -34,11 +35,11 @@ app.post("/participants", async (req, res) => {
         const { error } = userSchema.validate(req.body);
 
         if (error) return res.sendStatus(422);
-        
+
         const searchUsers = await db.collection("participants").find({ name }).toArray()
 
         if (searchUsers.length > 0) return res.sendStatus(409);
-        
+
         const newUser = { name, lastStatus: Date.now() };
         const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: currentTime };
 
@@ -61,28 +62,39 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
+    console.log(req.body)
+    console.log(req.headers)
     try {
         const { to, text, type } = req.body;
         const { User } = req.headers;
 
-        const messageSchema = Joi.object({
-            from: Joi.string().required(),
+        const messageBodySchema = Joi.object({
             to: Joi.string().required(),
             text: Joi.string().required(),
             type: Joi.string().valid("message", "private_message").required()
         });
 
-        const { error } = messageSchema.validate(req.body);
+        const { error: errorBody } = messageBodySchema.validate(req.body);
 
-        if (error) return res.status(422).send("Campos inválidos");
+        if (errorBody) return res.status(422).send(errorBody.message);
+
+        const messageHeaderSchema = Joi.object({
+            User: Joi.string().required()
+        });
+
+        const { error: errorHeaders } = messageHeaderSchema.validate(req.headers);
+        console.log(errorHeaders)
+
+        if (errorHeaders) return res.status(422).send(errorHeaders.message);
 
         const userFromMessage = await db.collection("messages").find({ from: User }).toArray()
-        
+
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
 
         const sendMessage = { from: User, to, text, type, time: currentTime };
 
         await db.collection("messages").insertOne(sendMessage);
+        console.log(sendMessage)
 
         res.sendStatus(201);
     } catch (err) {
@@ -106,8 +118,25 @@ app.get("/messages", async (req, res) => {
     }
 
 });
-app.post("/status", (req, res) => {
+app.post("/status", async (req, res) => {
+    try {
 
+        const { User } = req.headers;
+
+        if (!User) return res.sendStatus(404);
+
+        const findNewUser = await db.collection("participants").find({ User }).toArray()
+
+        if (findNewUser.length === 0) return res.sendStatus(404);
+
+        const refreshedUser = { name: User, lastStatus: Date.now() };
+
+        await db.collection("participants").insertOne(refreshedUser);
+
+        res.sendStatus(200)
+    } catch {
+        res.status(500).send(err.message);
+    }
 });
 
 const PORT = 5000;
