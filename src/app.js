@@ -41,7 +41,7 @@ app.post("/participants", async (req, res) => {
         if (searchUsers.length > 0) return res.sendStatus(409);
 
         const newUser = { name, lastStatus: Date.now() };
-        const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: currentTime };
+        const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
 
         await db.collection("participants").insertOne(newUser);
         await db.collection("messages").insertOne(newMessage);
@@ -122,7 +122,8 @@ app.get("/messages", async (req, res) => {
                     { type: "message" },
                     { type: "private_message", to: "Todos" },
                     { type: "private_message", to: user },
-                    { type: "private_message", from: user }
+                    { type: "private_message", from: user },
+                    { type: "status", to: "Todos" }
                 ]
             }).toArray()
 
@@ -161,7 +162,7 @@ app.post("/status", async (req, res) => {
         console.log(refreshedUser)
 
         res.sendStatus(200)
-    } catch {
+    } catch (err) {
         res.status(500).send(err.message);
     }
 });
