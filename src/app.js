@@ -18,8 +18,8 @@ mongoClient.connect()
     .then(() => db = mongoClient.db())
     .catch((err) => console.log(err.message))
 
-const now = dayjs(); //Data atual
-const currentTime = now.format('HH:mm:ss'); //Data no formato correto
+const currentDate = dayjs(); //Data atual
+const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
 
 
 app.post("/participants", async (req, res) => {
@@ -29,19 +29,16 @@ app.post("/participants", async (req, res) => {
 
         const userSchema = Joi.object({
             name: Joi.string().required()
-        })
+        });
+
         const { error } = userSchema.validate(req.body);
 
-        if (error) {
-            return res.sendStatus(422);
-        }
-
-        const searchUsers = await db.collection("participants").find({ name }).toArray()
+        if (error) return res.sendStatus(422);
         
-        if(searchUsers.length > 0) {
-            return res.sendStatus(409);
-        }
+        const searchUsers = await db.collection("participants").find({ name }).toArray()
 
+        if (searchUsers.length > 0) return res.sendStatus(409);
+        
         const newUser = { name, lastStatus: Date.now() };
         const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: currentTime };
 
@@ -53,11 +50,13 @@ app.post("/participants", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
-app.get("/participants", (req, res) => {
-
-    db.collection("participants").find().toArray()
-        .then(participants => res.send(participants))
-        .catch(err => res.status(500).send(err.message))
+app.get("/participants", async (req, res) => {
+    try {
+        const allParticipants = await db.collection("participants").find().toArray()
+        res.send(allParticipants);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 
 });
 
@@ -65,6 +64,21 @@ app.post("/messages", async (req, res) => {
     try {
         const { to, text, type } = req.body;
         const { User } = req.headers;
+
+        const messageSchema = Joi.object({
+            from: Joi.string().required(),
+            to: Joi.string().required(),
+            text: Joi.string().required(),
+            type: Joi.string().valid("message", "private_message").required()
+        });
+
+        const { error } = messageSchema.validate(req.body);
+
+        if (error) return res.status(422).send("Campos inválidos");
+
+        const userFromMessage = await db.collection("messages").find({ from: User }).toArray()
+        
+        if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
 
         const sendMessage = { from: User, to, text, type, time: currentTime };
 
@@ -76,17 +90,19 @@ app.post("/messages", async (req, res) => {
     }
 
 });
-app.get("/messages", (req, res) => {
+app.get("/messages", async (req, res) => {
+    try {
 
-    const { limit } = req.query;
-    const { user } = req.headers;
+        const { limit } = req.query;
+        const { User } = req.headers;
 
-    if (Math.sign(limit) !== 1) {
-        res.sendStatus(422);
-    } else {
-        db.collection("messages").find({ $or: [{ type: "message" }, { to: "Todos" }, { to: user }, { from: user }] }).toArray()
-            .then(messages => res.send(!limit ? messages : messages.slice(-limit)))
-            .catch(err => res.status(500).send(err.message))
+        if (Math.sign(limit) !== 1) res.sendStatus(422);
+
+        const searchMessages = await db.collection("messages").find({ $or: [{ type: "message" }, { to: "Todos" }, { to: User }, { from: User }] }).toArray()
+
+        res.send(!limit ? searchMessages : searchMessages.slice(-limit));
+    } catch (err) {
+        res.status(500).send(err.message);
     }
 
 });
