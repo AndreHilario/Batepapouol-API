@@ -11,12 +11,15 @@ app.use(cors());
 app.use(express.json());
 dotenv.config();
 
-
-let db;
+// Conectando MongoDB com async/await
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
-mongoClient.connect()
-    .then(() => db = mongoClient.db())
-    .catch((err) => console.log(err.message))
+try {
+    await mongoClient.connect();
+    console.log("MongoDB conectado!");
+} catch (err) {
+    console.log(err.message);
+}
+const db = mongoClient.db()
 
 const currentDate = dayjs(); //Data atual
 const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
@@ -30,11 +33,11 @@ app.post("/participants", async (req, res) => {
         name: Joi.string().required()
     });
 
+    const { error } = userSchema.validate(req.body);
+
+    if (error) return res.sendStatus(422);
+
     try {
-
-        const { error } = userSchema.validate(req.body);
-
-        if (error) return res.sendStatus(422);
 
         const searchUsers = await db.collection("participants").find({ name }).toArray()
 
@@ -83,11 +86,11 @@ app.post("/messages", async (req, res) => {
         type: Joi.string().valid("message", "private_message").required()
     });
 
+    const { error: errorBody } = messageBodySchema.validate(newBody);
+
+    if (errorBody) return res.status(422).send(errorBody.message);
+
     try {
-
-        const { error: errorBody } = messageBodySchema.validate(newBody);
-
-        if (errorBody) return res.status(422).send(errorBody.message);
 
         const userFromMessage = await db.collection("messages").find({ from: user }).toArray()
 
@@ -148,9 +151,9 @@ app.post("/status", async (req, res) => {
 
     const { user } = req.headers;
 
-    try {
+    if (!user) return res.sendStatus(404);
 
-        if (!user) return res.sendStatus(404);
+    try {
 
         const findNewUser = await db.collection("participants").find({ name: user }).toArray()
 
@@ -166,6 +169,8 @@ app.post("/status", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
+//const removedUser = {from: 'xxx', to: 'Todos', text: 'sai da sala...', type: 'status', time: currentTime}
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
