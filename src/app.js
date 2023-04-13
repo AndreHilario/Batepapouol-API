@@ -24,13 +24,13 @@ const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
 //setInterval(removeUsers, 15000);
 
 app.post("/participants", async (req, res) => {
+
+    const { name } = req.body;
+    const userSchema = Joi.object({
+        name: Joi.string().required()
+    });
+
     try {
-
-        const { name } = req.body;
-
-        const userSchema = Joi.object({
-            name: Joi.string().required()
-        });
 
         const { error } = userSchema.validate(req.body);
 
@@ -62,26 +62,28 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    try {
-        const { to, text, type } = req.body;
-        const { user } = req.headers;
-        
-        function verifyBody(req) {
-            if(req.body) {
-                return {...req.body, from: user}
-            }
-            
-            return req;
+
+    const { to, text, type } = req.body;
+    const { user } = req.headers;
+
+    function verifyBody(req) {
+        if (req.body) {
+            return { ...req.body, from: user }
         }
 
-        const newBody = verifyBody(req);
+        return req;
+    }
 
-        const messageBodySchema = Joi.object({
-            from: Joi.string().required(),
-            to: Joi.string().required(),
-            text: Joi.string().required(),
-            type: Joi.string().valid("message", "private_message").required()
-        });
+    const newBody = verifyBody(req);
+
+    const messageBodySchema = Joi.object({
+        from: Joi.string().required(),
+        to: Joi.string().required(),
+        text: Joi.string().required(),
+        type: Joi.string().valid("message", "private_message").required()
+    });
+
+    try {
 
         const { error: errorBody } = messageBodySchema.validate(newBody);
 
@@ -95,7 +97,6 @@ app.post("/messages", async (req, res) => {
         const sendMessage = { from: user, to, text, type, time: currentTime };
 
         await db.collection("messages").insertOne(sendMessage);
-        console.log(sendMessage)
 
         res.sendStatus(201);
     } catch (err) {
@@ -104,35 +105,60 @@ app.post("/messages", async (req, res) => {
 
 });
 app.get("/messages", async (req, res) => {
+
+    const { limit } = req.query;
+    const { user } = req.headers;
+
+    const limitSchema = Joi.number()
+        .integer()
+        .min(1)
+        .required();
+
     try {
 
-        const { limit } = req.query;
-        const { User } = req.headers;
+        const searchMessages = await db.collection("messages").find
+            ({
+                $or: [
+                    { type: "message" },
+                    { type: "private_message", to: "Todos" },
+                    { type: "private_message", to: user },
+                    { type: "private_message", from: user }
+                ]
+            }).toArray()
 
-        if (Math.sign(limit) !== 1) res.sendStatus(422);
+        if (limit) {
 
-        const searchMessages = await db.collection("messages").find({ $or: [{ type: "message" }, { to: "Todos" }, { to: User }, { from: User }] }).toArray()
+            const { error: errorLimit } = limitSchema.validate(limit);
 
-        res.send(!limit ? searchMessages : searchMessages.slice(-limit));
+            if (errorLimit) {
+                res.status(422).send(errorLimit.message)
+            } else {
+                res.send(searchMessages.slice(-limit));
+            }
+        } else {
+            res.send(searchMessages);
+        }
     } catch (err) {
         res.status(500).send(err.message);
     }
 
 });
 app.post("/status", async (req, res) => {
+
+    const { user } = req.headers;
+
     try {
 
-        const { User } = req.headers;
+        if (!user) return res.sendStatus(404);
 
-        if (!User) return res.sendStatus(404);
-
-        const findNewUser = await db.collection("participants").find({ User }).toArray()
+        const findNewUser = await db.collection("participants").find({ name: user }).toArray()
 
         if (findNewUser.length === 0) return res.sendStatus(404);
 
-        const refreshedUser = { name: User, lastStatus: Date.now() };
+        const refreshedUser = { name: user, lastStatus: Date.now() };
 
         await db.collection("participants").insertOne(refreshedUser);
+        console.log(refreshedUser)
 
         res.sendStatus(200)
     } catch {
