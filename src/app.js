@@ -62,36 +62,37 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    console.log(req.body)
-    console.log(req.headers)
     try {
         const { to, text, type } = req.body;
-        const { User } = req.headers;
+        const { user } = req.headers;
+        
+        function verifyBody(req) {
+            if(req.body) {
+                return {...req.body, from: user}
+            }
+            
+            return req;
+        }
+
+        const newBody = verifyBody(req);
 
         const messageBodySchema = Joi.object({
+            from: Joi.string().required(),
             to: Joi.string().required(),
             text: Joi.string().required(),
             type: Joi.string().valid("message", "private_message").required()
         });
 
-        const { error: errorBody } = messageBodySchema.validate(req.body);
+        const { error: errorBody } = messageBodySchema.validate(newBody);
 
         if (errorBody) return res.status(422).send(errorBody.message);
 
-        const messageHeaderSchema = Joi.object({
-            User: Joi.string().required()
-        });
-
-        const { error: errorHeaders } = messageHeaderSchema.validate(req.headers);
-        console.log(errorHeaders)
-
-        if (errorHeaders) return res.status(422).send(errorHeaders.message);
-
-        const userFromMessage = await db.collection("messages").find({ from: User }).toArray()
+        const userFromMessage = await db.collection("messages").find({ from: user }).toArray()
 
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
 
-        const sendMessage = { from: User, to, text, type, time: currentTime };
+
+        const sendMessage = { from: user, to, text, type, time: currentTime };
 
         await db.collection("messages").insertOne(sendMessage);
         console.log(sendMessage)
