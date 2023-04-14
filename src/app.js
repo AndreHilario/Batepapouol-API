@@ -4,6 +4,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 import Joi from "joi";
+import { stripHtml } from "string-strip-html";
 
 const app = express();
 app.use(cors());
@@ -38,6 +39,7 @@ setInterval(checkLoggedUser, 15000);
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
+    name = stripHtml(name).trim();
     const userSchema = Joi.object({
         name: Joi.string().required()
     });
@@ -66,8 +68,9 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    const { to, text, type } = req.body;
+    const { to, text, type } = stripHtml(req.body).trim();
     const { user } = req.headers;
+    //text = stripHtml(text).trim();
     function verifyBody(req) {
         if (req.body) {
             return { ...req.body, from: user };
