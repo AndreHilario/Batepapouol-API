@@ -38,9 +38,7 @@ async function checkLoggedUser() {
 //setInterval(checkLoggedUser, 15000);
 
 app.post("/participants", async (req, res) => {
-    const { name } = req.body;
-
-    const newName = stripHtml(name);
+    const name = stripHtml(req.body.name).result.trim();
 
     const userSchema = Joi.object({
         name: Joi.string().required()
@@ -50,8 +48,7 @@ app.post("/participants", async (req, res) => {
     try {
         const searchUsers = await db.collection("participants").find({ name }).toArray()
         if (searchUsers.length > 0) return res.sendStatus(409);
-        const newUser = { name: newName.result, lastStatus: Date.now() };
-        console.log(newUser)
+        const newUser = { name, lastStatus: Date.now() };
         const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
         await db.collection("participants").insertOne(newUser);
         await db.collection("messages").insertOne(newMessage);
@@ -71,10 +68,11 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    const { to, text, type } = req.body
-    const { user } = req.headers;
 
-    const newText = stripHtml(text);
+    const user = stripHtml(req.headers.user).result.trim();
+    const to = stripHtml(req.body.to).result.trim();
+    const text = stripHtml(req.body.text).result.trim();
+    const type = stripHtml(req.body.type).result.trim();
 
     function verifyBody(req) {
         if (req.body) {
@@ -97,7 +95,7 @@ app.post("/messages", async (req, res) => {
     try {
         const userFromMessage = await db.collection("messages").find({ from: user }).toArray()
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
-        const sendMessage = { from: user, to, text: newText.result, type, time: currentTime };
+        const sendMessage = { from: user, to, text, type, time: currentTime };
         await db.collection("messages").insertOne(sendMessage);
         console.log(sendMessage)
         res.sendStatus(201);
