@@ -134,7 +134,7 @@ app.post("/status", async (req, res) => {
         const findNewUser = await db.collection("participants").find({ name: user }).toArray();
         if (findNewUser.length === 0) return res.sendStatus(404);
         const refreshedUser = { lastStatus: Date.now() };
-        await db.collection("participants").upadateOne(
+        await db.collection("participants").updateOne(
             {name: user},
             {$set: refreshedUser}
         );
