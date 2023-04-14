@@ -38,17 +38,19 @@ async function checkLoggedUser() {
 setInterval(checkLoggedUser, 15000);
 
 app.post("/participants", async (req, res) => {
-    const name = stripHtml(req.body.name).result.trim();
+    const { name } = req.body;
 
     const userSchema = Joi.object({
         name: Joi.string().required()
     });
     const { error } = userSchema.validate(req.body);
     if (error) return res.sendStatus(422);
+
+    const newName = stripHtml(name).result.trim();
     try {
         const searchUsers = await db.collection("participants").find({ name }).toArray()
         if (searchUsers.length > 0) return res.sendStatus(409);
-        const newUser = { name, lastStatus: Date.now() };
+        const newUser = { name: newName, lastStatus: Date.now() };
         const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
         await db.collection("participants").insertOne(newUser);
         await db.collection("messages").insertOne(newMessage);
@@ -69,10 +71,8 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
 
-    const user = stripHtml(req.headers.user).result.trim();
-    const to = stripHtml(req.body.to).result.trim();
-    const text = stripHtml(req.body.text).result.trim();
-    const type = stripHtml(req.body.type).result.trim();
+    const { to, text, type } = req.body;
+    const { user } = req.headers;
 
     function verifyBody(req) {
         if (req.body) {
@@ -91,11 +91,15 @@ app.post("/messages", async (req, res) => {
     const { error: errorBody } = messageBodySchema.validate(newBody);
     if (errorBody) return res.status(422).send(errorBody.message);
 
+    const fixedUser = stripHtml(user).result.trim();
+    const fixedTo = stripHtml(to).result.trim();
+    const fixedText = stripHtml(text).result.trim();
+    const fixedType = stripHtml(type).result.trim();
 
     try {
         const userFromMessage = await db.collection("messages").find({ from: user }).toArray()
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
-        const sendMessage = { from: user, to, text, type, time: currentTime };
+        const sendMessage = { from: fixedUser, to: fixedTo, text: fixedText, type: fixedType, time: currentTime };
         await db.collection("messages").insertOne(sendMessage);
         console.log(sendMessage)
         res.sendStatus(201);
