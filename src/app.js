@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 import Joi from "joi";
@@ -169,6 +169,28 @@ app.post("/status", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
+app.delete("/messages/:id", async (req, res) => {
+
+    const { id } = req.params;
+    const { user } = req.headers;
+
+    if(!id || !user) return res.status(422).send("User required on header and id on path params")
+
+    try {
+        const result = await db.collection("messages").findOne({ _id: new ObjectId(id) });
+
+        if(!result) return res.status(404).send("Message not found");
+
+        if (result.from !== user) return res.status(401).send("Unauthorized");
+
+        await db.collection("messages").deleteOne({ _id: new ObjectId(id) });
+
+        res.status(200).send("Message deleteds with sucess");
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+})
 
 //const removedUser = {from: 'xxx', to: 'Todos', text: 'sai da sala...', type: 'status', time: currentTime}
 
