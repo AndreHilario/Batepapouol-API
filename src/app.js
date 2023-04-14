@@ -28,17 +28,14 @@ const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
 
 async function checkLoggedUser() {
     const timeStatus = Date.now() - 10000;
+    const sanitizedText = stripHtml("sai da sala...").trim();
 
     const userToBeDeleted = await db.collection("participants").findOne({ lastStatus: { $lt: timeStatus } });
 
+    const sanitizedName = stripHtml(userToBeDeleted.name).trim();
+
     if (userToBeDeleted) {
-        const removedUser = {
-            from: stripHtml(userToBeDeleted.name.trim()),
-            to: stripHtml('Todos').trim(),
-            text: stripHtml('sai da sala...').trim(),
-            type: stripHtml('status').trim(),
-            time: stripHtml(currentTime).trim()
-        };
+        const removedUser = { from: sanitizedName, to: "Todos", text: sanitizedText, type: "status", time: currentTime };
 
         await db.collection("participants").deleteOne({ _id: userToBeDeleted._id });
         await db.collection("messages").insertOne(removedUser);
@@ -52,6 +49,8 @@ setInterval(checkLoggedUser, 15000);
 app.post("/participants", async (req, res) => {
 
     const { name } = req.body;
+    const sanitizedName = stripHtml(name).trim();
+    const newText = stripHtml("entra na sala...").trim();
     const userSchema = Joi.object({
         name: Joi.string().required()
     });
@@ -66,13 +65,13 @@ app.post("/participants", async (req, res) => {
 
         if (searchUsers.length > 0) return res.sendStatus(409);
 
-        const newUser = { name: stripHtml(name), lastStatus: Date.now() };
-        const newMessage = {
-            from: stripHtml(name).trim(),
-            to: stripHtml("Todos").trim(),
-            text: stripHtml("entra na sala...").trim(),
-            type: stripHtml("status").trim(),
-            time: stripHtml(currentTime).trim()
+        const newUser = { name: sanitizedName, lastStatus: Date.now() };
+        const newMessage = { 
+            from: sanitizedName, 
+            to: "Todos", 
+            text: newText, 
+            type: "status", 
+            time: currentTime 
         };
 
         await db.collection("participants").insertOne(newUser);
@@ -85,7 +84,7 @@ app.post("/participants", async (req, res) => {
 });
 app.get("/participants", async (req, res) => {
     try {
-        const allParticipants = await db.collection("participants").find().toArray()
+        const allParticipants = await db.collection("participants").find().toArray();
         res.send(allParticipants);
     } catch (err) {
         res.status(500).send(err.message);
@@ -98,7 +97,10 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const { user } = req.headers;
 
-    function verifyBody(req) {
+    const sanitizedUSer = stripHtml(user).trim();
+    const sanitizedText = stripHtml(text).trim();
+
+    function verifyNewBody(req) {
         if (req.body) {
             return { ...req.body, from: user }
         }
@@ -106,7 +108,7 @@ app.post("/messages", async (req, res) => {
         return req;
     }
 
-    const newBody = verifyBody(req);
+    const newBody = verifyNewBody(req);
 
     const messageBodySchema = Joi.object({
         from: Joi.string().required(),
@@ -126,12 +128,12 @@ app.post("/messages", async (req, res) => {
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
 
 
-        const sendMessage = {
-            from: stripHtml(user).trim(),
-            to: stripHtml(to).trim(),
-            text: stripHtml(text).trim(),
-            type: stripHtml(type).trim(),
-            time: stripHtml(currentTime).trim()
+        const sendMessage = { 
+            from: sanitizedUSer, 
+            to, 
+            text: sanitizedText, 
+            type, 
+            time: currentTime 
         };
 
         await db.collection("messages").insertOne(sendMessage);
@@ -185,6 +187,7 @@ app.get("/messages", async (req, res) => {
 app.post("/status", async (req, res) => {
 
     const { user } = req.headers;
+    const sanitizedUSer = stripHtml(user).trim();
 
     if (!user) return res.sendStatus(404);
 
@@ -194,7 +197,7 @@ app.post("/status", async (req, res) => {
 
         if (findNewUser.length === 0) return res.sendStatus(404);
 
-        const refreshedUser = { name: stripHtml(user).trim(), lastStatus: stripHtml(Date.now()).trim() };
+        const refreshedUser = { name: sanitizedUSer, lastStatus: Date.now() };
 
         await db.collection("participants").insertOne(refreshedUser);
         console.log(refreshedUser)
@@ -233,15 +236,18 @@ app.put("/messages/:id"), async (req, res) => {
     const { user } = req.headers;
     const { to, text, type } = req.body;
 
+    const sanitizedUSer = stripHtml(user).trim();
+    const sanitizedText = stripHtml(text).trim();
+
     const editedMessage = {};
 
-    if (to) editedMessage.to = stripHtml(to).trim();
-    if (text) editedMessage.text = stripHtml(text).trim();
-    if (type) editedMessage.type = stripHtml(type).trim();
+    if (to) editedMessage.to = to;
+    if (text) editedMessage.text = sanitizedText;
+    if (type) editedMessage.type = type;
 
     function verifyBody(req) {
         if (req.body) {
-            return { ...req.body, from: user }
+            return { ...req.body, from: sanitizedUSer }
         }
 
         return req;
