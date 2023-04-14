@@ -4,10 +4,12 @@ import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 import Joi from "joi";
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 dotenv.config();
+
 // Conectando MongoDB com async/await
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
 try {
@@ -16,9 +18,11 @@ try {
 } catch (err) {
     console.log(err.message);
 }
-const db = mongoClient.db()
+const db = mongoClient.db();
+
 const currentDate = dayjs(); //Data atual
 const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
+
 async function checkLoggedUser() {
     const timeStatus = Date.now() - 10000;
     const userToBeDeleted = await db.collection("participants").findOne({ lastStatus: { $lt: timeStatus } });
@@ -28,8 +32,10 @@ async function checkLoggedUser() {
         await db.collection("messages").insertOne(removedUser);
         console.log(`Usuário ${userToBeDeleted.name} removido`);
     }
-};
+}
+
 setInterval(checkLoggedUser, 15000);
+
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
     const userSchema = Joi.object({
@@ -49,20 +55,22 @@ app.post("/participants", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
 app.get("/participants", async (req, res) => {
     try {
-        const allParticipants = await db.collection("participants").find().toArray()
+        const allParticipants = await db.collection("participants").find().toArray();
         res.send(allParticipants);
     } catch (err) {
         res.status(500).send(err.message);
     }
 });
+
 app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const { user } = req.headers;
     function verifyBody(req) {
         if (req.body) {
-            return { ...req.body, from: user }
+            return { ...req.body, from: user };
         }
         return req;
     }
@@ -85,6 +93,7 @@ app.post("/messages", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
 app.get("/messages", async (req, res) => {
     const { limit } = req.query;
     const { user } = req.headers;
@@ -102,11 +111,11 @@ app.get("/messages", async (req, res) => {
                     { type: "private_message", from: user },
                     { type: "status", to: "Todos" }
                 ]
-            }).toArray()
+            }).toArray();
         if (limit) {
             const { error: errorLimit } = limitSchema.validate(limit);
             if (errorLimit) {
-                res.status(422).send(errorLimit.message)
+                res.status(422).send(errorLimit.message);
             } else {
                 res.send(searchMessages.slice(-limit));
             }
@@ -117,24 +126,27 @@ app.get("/messages", async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
 app.post("/status", async (req, res) => {
     const { user } = req.headers;
+    const time = Date.now();
     if (!user) return res.sendStatus(404);
     try {
-        const findNewUser = await db.collection("participants").find({ name: user }).toArray()
+        const findNewUser = await db.collection("participants").find({ name: user }).toArray();
         if (findNewUser.length === 0) return res.sendStatus(404);
-        const refreshedUser = { name: user, lastStatus: Date.now() };
+        const refreshedUser = { name: user, lastStatus: time };
         await db.collection("participants").insertOne(refreshedUser);
         console.log(refreshedUser)
-        res.sendStatus(200)
+        res.sendStatus(200);
     } catch (err) {
         res.status(500).send(err.message);
     }
 });
+
 app.delete("/messages/:id", async (req, res) => {
     const { id } = req.params;
     const { user } = req.headers;
-    if (!id || !user) return res.status(422).send("User required on header and id on path params")
+    if (!id || !user) return res.status(422).send("User required on header and id on path params");
     try {
         const result = await db.collection("messages").findOne({ _id: new ObjectId(id) });
         if (!result) return res.status(404).send("Message not found");
@@ -146,7 +158,7 @@ app.delete("/messages/:id", async (req, res) => {
     }
 });
 
-app.put("/messages/:id"), async (req, res) => {
+app.put("/messages/:id", async (req, res) => {
 
     const { id } = req.params;
     const { user } = req.headers;
@@ -158,15 +170,15 @@ app.put("/messages/:id"), async (req, res) => {
     if (text) editedMessage.text = text;
     if (type) editedMessage.type = type;
 
-    function verifyBody(req) {
+    function verifyAgainBody(req) {
         if (req.body) {
-            return { ...req.body, from: user }
+            return { ...req.body, from: user };
         }
 
         return req;
     }
 
-    const newBody = verifyBody(req);
+    const newBody = verifyAgainBody(req);
 
     const messageBodySchema = Joi.object({
         from: Joi.string().required(),
@@ -196,12 +208,10 @@ app.put("/messages/:id"), async (req, res) => {
         );
 
         res.status(200).send("Recipes updated");
-
     } catch (err) {
         res.status(500).send(err.message);
     }
-}
-
+});
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
