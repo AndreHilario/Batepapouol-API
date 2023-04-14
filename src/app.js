@@ -208,6 +208,62 @@ app.delete("/messages/:id", async (req, res) => {
     }
 });
 
+app.put("/messages/:id"), async (req, res) => {
+
+    const { id } = req.params;
+    const { user } = req.headers;
+    const { to, text, type } = req.body;
+
+    const editedMessage = {};
+
+    if (to) editedMessage.to = to;
+    if (text) editedMessage.text = text;
+    if (type) editedMessage.type = type;
+
+    function verifyBody(req) {
+        if (req.body) {
+            return { ...req.body, from: user }
+        }
+
+        return req;
+    }
+
+    const newBody = verifyBody(req);
+
+    const messageBodySchema = Joi.object({
+        from: Joi.string().required(),
+        to: Joi.string().required(),
+        text: Joi.string().required(),
+        type: Joi.string().valid("message", "private_message").required()
+    });
+
+    const { error: errorBody } = messageBodySchema.validate(newBody);
+
+    if (errorBody) return res.status(422).send(errorBody.message);
+
+    try {
+        const userFromMessageChanged = await db.collection("messages").find({ from: user }).toArray();
+
+        if (userFromMessageChanged.length === 0) return res.status(422).send("User does not exist");
+
+        const result = await db.collection("messages").findOne({ _id: new ObjectId(id) });
+
+        if (!result) return res.status(404).send("Message not found");
+
+        if (result.from !== user) return res.status(401).send("Unauthorized");
+
+        await db.collection("messages").updateOne(
+            { _id: new ObjectId(id) },
+            { $set: editedMessage }
+        );
+
+        res.status(200).send("Recipes updated");
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
+
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
