@@ -129,14 +129,15 @@ app.get("/messages", async (req, res) => {
 
 app.post("/status", async (req, res) => {
     const { user } = req.headers;
-    const time = Date.now();
     if (!user) return res.sendStatus(404);
     try {
         const findNewUser = await db.collection("participants").find({ name: user }).toArray();
         if (findNewUser.length === 0) return res.sendStatus(404);
-        const refreshedUser = { name: user, lastStatus: time };
-        await db.collection("participants").insertOne(refreshedUser);
-        console.log(refreshedUser)
+        const refreshedUser = { lastStatus: Date.now() };
+        await db.collection("participants").upadateOne(
+            {name: user},
+            {$set: refreshedUser}
+        );
         res.sendStatus(200);
     } catch (err) {
         res.status(500).send(err.message);
