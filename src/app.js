@@ -35,7 +35,7 @@ async function checkLoggedUser() {
     }
 }
 
-//setInterval(checkLoggedUser, 15000);
+setInterval(checkLoggedUser, 15000);
 
 app.post("/participants", async (req, res) => {
     const name = stripHtml(req.body.name).result.trim();
