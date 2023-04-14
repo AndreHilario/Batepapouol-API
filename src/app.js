@@ -24,7 +24,23 @@ const db = mongoClient.db()
 const currentDate = dayjs(); //Data atual
 const currentTime = currentDate.format('HH:mm:ss'); //Data no formato correto
 
-//setInterval(removeUsers, 15000);
+
+async function checkLoggedUser() {
+    const timeStatus = Date.now() - 10000;
+
+    const userToBeDeleted = await db.collection("participants").findOne({ lastStatus: { $lt: timeStatus } });
+
+    if (userToBeDeleted) {
+        const removedUser = { from: userToBeDeleted.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: currentTime };
+
+        await db.collection("participants").deleteOne({ _id: userToBeDeleted._id });
+        await db.collection("messages").insertOne(removedUser);
+        console.log(`Usuário ${userToBeDeleted.name} removido`);
+    }
+};
+
+setInterval(checkLoggedUser, 15000);
+
 
 app.post("/participants", async (req, res) => {
 
@@ -175,12 +191,12 @@ app.delete("/messages/:id", async (req, res) => {
     const { id } = req.params;
     const { user } = req.headers;
 
-    if(!id || !user) return res.status(422).send("User required on header and id on path params")
+    if (!id || !user) return res.status(422).send("User required on header and id on path params")
 
     try {
         const result = await db.collection("messages").findOne({ _id: new ObjectId(id) });
 
-        if(!result) return res.status(404).send("Message not found");
+        if (!result) return res.status(404).send("Message not found");
 
         if (result.from !== user) return res.status(401).send("Unauthorized");
 
@@ -190,9 +206,8 @@ app.delete("/messages/:id", async (req, res) => {
     } catch (err) {
         res.status(500).send(err.message);
     }
-})
+});
 
-//const removedUser = {from: 'xxx', to: 'Todos', text: 'sai da sala...', type: 'status', time: currentTime}
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
