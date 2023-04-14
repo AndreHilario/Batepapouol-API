@@ -35,11 +35,13 @@ async function checkLoggedUser() {
     }
 }
 
-setInterval(checkLoggedUser, 15000);
+//setInterval(checkLoggedUser, 15000);
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
-    name = stripHtml(name).trim();
+
+    const newName = stripHtml(name);
+
     const userSchema = Joi.object({
         name: Joi.string().required()
     });
@@ -48,7 +50,8 @@ app.post("/participants", async (req, res) => {
     try {
         const searchUsers = await db.collection("participants").find({ name }).toArray()
         if (searchUsers.length > 0) return res.sendStatus(409);
-        const newUser = { name, lastStatus: Date.now() };
+        const newUser = { name: newName.result, lastStatus: Date.now() };
+        console.log(newUser)
         const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
         await db.collection("participants").insertOne(newUser);
         await db.collection("messages").insertOne(newMessage);
@@ -68,15 +71,18 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    const { to, text, type } = stripHtml(req.body).trim();
+    const { to, text, type } = req.body
     const { user } = req.headers;
-    //text = stripHtml(text).trim();
+
+    const newText = stripHtml(text);
+
     function verifyBody(req) {
         if (req.body) {
             return { ...req.body, from: user };
         }
         return req;
     }
+
     const newBody = verifyBody(req);
     const messageBodySchema = Joi.object({
         from: Joi.string().required(),
@@ -86,11 +92,14 @@ app.post("/messages", async (req, res) => {
     });
     const { error: errorBody } = messageBodySchema.validate(newBody);
     if (errorBody) return res.status(422).send(errorBody.message);
+
+
     try {
         const userFromMessage = await db.collection("messages").find({ from: user }).toArray()
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
-        const sendMessage = { from: user, to, text, type, time: currentTime };
+        const sendMessage = { from: user, to, text: newText.result, type, time: currentTime };
         await db.collection("messages").insertOne(sendMessage);
+        console.log(sendMessage)
         res.sendStatus(201);
     } catch (err) {
         res.status(500).send(err.message);
@@ -138,8 +147,8 @@ app.post("/status", async (req, res) => {
         if (findNewUser.length === 0) return res.sendStatus(404);
         const refreshedUser = { lastStatus: Date.now() };
         await db.collection("participants").updateOne(
-            {name: user},
-            {$set: refreshedUser}
+            { name: user },
+            { $set: refreshedUser }
         );
         res.sendStatus(200);
     } catch (err) {
