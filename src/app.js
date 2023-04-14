@@ -4,6 +4,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 import Joi from "joi";
+import { stripHtml } from "string-strip-html";
 
 const app = express();
 
@@ -31,7 +32,13 @@ async function checkLoggedUser() {
     const userToBeDeleted = await db.collection("participants").findOne({ lastStatus: { $lt: timeStatus } });
 
     if (userToBeDeleted) {
-        const removedUser = { from: userToBeDeleted.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: currentTime };
+        const removedUser = {
+            from: stripHtml(userToBeDeleted.name.trim()),
+            to: stripHtml('Todos').trim(),
+            text: stripHtml('sai da sala...').trim(),
+            type: stripHtml('status').trim(),
+            time: stripHtml(currentTime).trim()
+        };
 
         await db.collection("participants").deleteOne({ _id: userToBeDeleted._id });
         await db.collection("messages").insertOne(removedUser);
@@ -59,8 +66,14 @@ app.post("/participants", async (req, res) => {
 
         if (searchUsers.length > 0) return res.sendStatus(409);
 
-        const newUser = { name, lastStatus: Date.now() };
-        const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
+        const newUser = { name: stripHtml(name), lastStatus: Date.now() };
+        const newMessage = {
+            from: stripHtml(name).trim(),
+            to: stripHtml("Todos").trim(),
+            text: stripHtml("entra na sala...").trim(),
+            type: stripHtml("status").trim(),
+            time: stripHtml(currentTime).trim()
+        };
 
         await db.collection("participants").insertOne(newUser);
         await db.collection("messages").insertOne(newMessage);
@@ -113,7 +126,13 @@ app.post("/messages", async (req, res) => {
         if (userFromMessage.length === 0) return res.status(422).send("Usuário remetente não existe");
 
 
-        const sendMessage = { from: user, to, text, type, time: currentTime };
+        const sendMessage = {
+            from: stripHtml(user).trim(),
+            to: stripHtml(to).trim(),
+            text: stripHtml(text).trim(),
+            type: stripHtml(type).trim(),
+            time: stripHtml(currentTime).trim()
+        };
 
         await db.collection("messages").insertOne(sendMessage);
 
@@ -175,7 +194,7 @@ app.post("/status", async (req, res) => {
 
         if (findNewUser.length === 0) return res.sendStatus(404);
 
-        const refreshedUser = { name: user, lastStatus: Date.now() };
+        const refreshedUser = { name: stripHtml(user).trim(), lastStatus: stripHtml(Date.now()).trim() };
 
         await db.collection("participants").insertOne(refreshedUser);
         console.log(refreshedUser)
@@ -216,9 +235,9 @@ app.put("/messages/:id"), async (req, res) => {
 
     const editedMessage = {};
 
-    if (to) editedMessage.to = to;
-    if (text) editedMessage.text = text;
-    if (type) editedMessage.type = type;
+    if (to) editedMessage.to = stripHtml(to).trim();
+    if (text) editedMessage.text = stripHtml(text).trim();
+    if (type) editedMessage.type = stripHtml(type).trim();
 
     function verifyBody(req) {
         if (req.body) {
