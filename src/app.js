@@ -37,6 +37,13 @@ async function checkLoggedUser() {
     }
 }
 
+function verifyBody(req) {
+    if (req.body) {
+        return { ...req.body, from: user };
+    }
+    return req;
+}
+
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
@@ -45,11 +52,11 @@ app.post("/participants", async (req, res) => {
         name: Joi.string().required()
     });
 
-    const validation = userSchema.validate(req.body, { abortEarly: false })
+    const validation = userSchema.validate(req.body, { abortEarly: false });
 
     if (validation.error) {
-        const errors = validation.error.details.map(detail => detail.message)
-        return res.status(422).send(errors)
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
     }
 
     const newName = stripHtml(name).result.trim();
@@ -58,7 +65,7 @@ app.post("/participants", async (req, res) => {
         const searchUsers = await db.collection("participants").find({ name }).toArray();
 
         if (searchUsers.length > 0) return res.sendStatus(409);
-        
+
         const newUser = { name: newName, lastStatus: Date.now() };
         const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime };
         await db.collection("participants").insertOne(newUser);
@@ -84,13 +91,6 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const { user } = req.headers;
 
-    function verifyBody(req) {
-        if (req.body) {
-            return { ...req.body, from: user };
-        }
-        return req;
-    }
-
     const newBody = verifyBody(req);
 
     const messageBodySchema = Joi.object({
@@ -100,11 +100,11 @@ app.post("/messages", async (req, res) => {
         type: Joi.string().valid("message", "private_message").required()
     });
 
-    const validation = messageBodySchema.validate(newBody, { abortEarly: false })
+    const validation = messageBodySchema.validate(newBody, { abortEarly: false });
 
     if (validation.error) {
-        const errors = validation.error.details.map(detail => detail.message)
-        return res.status(422).send(errors)
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
     }
 
     const fixedUser = stripHtml(user).result.trim();
@@ -203,15 +203,7 @@ app.put("/messages/:id", async (req, res) => {
     const { id } = req.params;
     const { user } = req.headers;
 
-    function verifyAgainBody(req) {
-        if (req.body) {
-            return { ...req.body, from: user };
-        }
-
-        return req;
-    }
-
-    const newBody = verifyAgainBody(req);
+    const newBody = verifyBody(req);
 
     const messageBodySchema = Joi.object({
         from: Joi.string().required(),
@@ -220,11 +212,11 @@ app.put("/messages/:id", async (req, res) => {
         type: Joi.string().valid("message", "private_message").required()
     });
 
-    const validation = messageBodySchema.validate(newBody, { abortEarly: false })
+    const validation = messageBodySchema.validate(newBody, { abortEarly: false });
 
     if (validation.error) {
-        const errors = validation.error.details.map(detail => detail.message)
-        return res.status(422).send(errors)
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
     }
 
     try {
