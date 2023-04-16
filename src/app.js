@@ -203,14 +203,8 @@ app.put("/messages/:id", async (req, res) => {
     const { id } = req.params;
     const { user } = req.headers;
 
-    function verifyBody(req) {
-        if (req.body) {
-            return { ...req.body, from: user };
-        }
-        return req;
-    }
-
-    const newBody = verifyBody(req);
+    const defaultBody = { from: user };
+    const newBody = { ...defaultBody, ...req.body };
 
     const messageBodySchema = Joi.object({
         from: Joi.string().required(),
