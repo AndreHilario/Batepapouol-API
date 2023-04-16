@@ -37,13 +37,6 @@ async function checkLoggedUser() {
     }
 }
 
-function verifyBody(req) {
-    if (req.body) {
-        return { ...req.body, from: user };
-    }
-    return req;
-}
-
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
@@ -90,6 +83,13 @@ app.post("/messages", async (req, res) => {
 
     const { to, text, type } = req.body;
     const { user } = req.headers;
+
+    function verifyBody(req) {
+        if (req.body) {
+            return { ...req.body, from: user };
+        }
+        return req;
+    }
 
     const newBody = verifyBody(req);
 
@@ -202,6 +202,13 @@ app.put("/messages/:id", async (req, res) => {
 
     const { id } = req.params;
     const { user } = req.headers;
+
+    function verifyBody(req) {
+        if (req.body) {
+            return { ...req.body, from: user };
+        }
+        return req;
+    }
 
     const newBody = verifyBody(req);
 
